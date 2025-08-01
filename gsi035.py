@@ -17,17 +17,11 @@ def GEN(seed : str) -> str:
         resultado += tabela_sbox.get(bloco, XOR_BITS(bloco, "01"))
     return resultado
 
-
-
-def XOR_BITS(bit1: str, bit2: str) -> str:
-    return resultado
-
 def ENC(k: str, m: str) -> str:
   return XOR_BITS(k, m)
 
 def DEC(k: str, c: str) -> str:
  return XOR_BITS(k, c)
-
 
 def XOR_BITS(bit1: str, bit2: str) -> str:
     if len(bit1) != len(bit2):
