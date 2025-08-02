@@ -1,11 +1,14 @@
 
 
 def GEN(seed : str) -> str:
-    resultado = ""
+    resultado_parts = []
     t = len(seed)
     seed_reversed = seed[::-1]
     first = seed + seed_reversed
-    resultado += XOR_BITS(first, first[::-1])
+    first_reversed = first[::-1]
+    rotacao_direita = first[-1] + first[:-1]
+    resultado_parts.append(XOR_BITS(rotacao_direita, first_reversed))
+
     tabela_sbox = {
         "00": "01",
         "01": "00", 
@@ -13,9 +16,12 @@ def GEN(seed : str) -> str:
         "11": "10"
     }
     for i in range(0, len(first), 2):
-        bloco = first[::-1][i:i+2]
-        resultado += tabela_sbox.get(bloco, XOR_BITS(bloco, "01"))
-    return resultado
+        bloco = first_reversed[i:i+2]
+        resultado_parts.append(tabela_sbox.get(bloco, XOR_BITS(bloco, "01")))
+    
+    resultado_parts.pop(0) 
+    resultado_parts.append("1")
+    return "".join(resultado_parts)
 
 def ENC(k: str, m: str) -> str:
   return XOR_BITS(k, m)
@@ -26,10 +32,7 @@ def DEC(k: str, c: str) -> str:
 def XOR_BITS(bit1: str, bit2: str) -> str:
     if len(bit1) != len(bit2):
         raise ValueError("Chave e mensagem devem ter o mesmo tamanho")
-    resultado = ""
-    for b1, b2 in zip(bit1, bit2):
-        resultado += str(int(b1) ^ int(b2))
-    return resultado
+    return "".join(str(int(b1) ^ int(b2)) for b1, b2 in zip(bit1, bit2))
 
 
 def main():
