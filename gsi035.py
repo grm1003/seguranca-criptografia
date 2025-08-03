@@ -8,10 +8,11 @@ def GEN(seed : str) -> str:
         "10": "11",
         "11": "10"
     }
-    
-    # Expande a seed até ter pelo menos 8 bits
+    min_size = 4*len(seed)  # Define o tamanho mínimo da chave
+
+    # Expande a seed até ter pelo menos o tamanho mínimo
     seed_expanded = seed
-    while len(seed_expanded) < 8:
+    while len(seed_expanded) < min_size:
         seed_expanded = seed_expanded + seed_expanded[::-1]
     
     # Primeira transformação: aplica S-box na seed expandida
@@ -40,8 +41,8 @@ def GEN(seed : str) -> str:
         bloco = resultado[i:i+2]
         temp += tabela_sbox.get(bloco, XOR_BITS(bloco, "01"))
     resultado = temp
-    
-    return resultado
+
+    return resultado[:min_size] 
 
 def ENC(k: str, m: str) -> str:
     # Primeiro passo: XOR inicial
