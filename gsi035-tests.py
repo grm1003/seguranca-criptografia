@@ -1,145 +1,158 @@
-import time
-
 
 
 def GEN(seed : str) -> str:
-    resultado_parts = []
-    t = len(seed)
-    seed_reversed = seed[::-1]
-    first = seed + seed_reversed
-    first_reversed = first[::-1]
-    rotacao_direita = first[-1] + first[:-1]
-    resultado_parts.append(XOR_BITS(rotacao_direita, first_reversed))
-
     tabela_sbox = {
         "00": "01",
         "01": "00", 
         "10": "11",
         "11": "10"
     }
-    for i in range(0, len(first), 2):
-        bloco = first_reversed[i:i+2]
-        resultado_parts.append(tabela_sbox.get(bloco, XOR_BITS(bloco, "01")))
-    
-    resultado_parts.pop(0) 
-    resultado_parts.append("1")
-    return "".join(resultado_parts)
+    min_size = 4*len(seed)  # Define o tamanho mínimo da chave
 
+    # Expande a seed até ter pelo menos o tamanho mínimo
+    seed_expanded = seed
+    while len(seed_expanded) < min_size:
+        seed_expanded = seed_expanded + seed_expanded[::-1]
+    
+    # Primeira transformação: aplica S-box na seed expandida
+    resultado = ""
+    for i in range(0, len(seed_expanded), 2):
+        bloco = seed_expanded[i:i+2]
+        resultado += tabela_sbox.get(bloco, XOR_BITS(bloco, "01"))
+    
+    # Segunda transformação: rotação baseada no valor da seed
+    seed_value = int(seed, 2)  # converte seed para número
+    rotacao = (seed_value % len(resultado)) + 1
+    resultado = resultado[rotacao:] + resultado[:rotacao]
+    
+    # Terceira transformação: aplica padrão baseado na seed
+    padrao = ""
+    for i in range(len(resultado)):
+        if i % 2 == (seed_value % 2):
+            padrao += "1"
+        else:
+            padrao += "0"
+    resultado = XOR_BITS(resultado, padrao)
+    
+    temp = ""
+    for i in range(0, len(resultado), 2):
+        bloco = resultado[i:i+2]
+        temp += tabela_sbox.get(bloco, XOR_BITS(bloco, "01"))
+    resultado = temp
+
+    return resultado[:min_size] 
 
 def ENC(k: str, m: str) -> str:
-  return XOR_BITS(k, m)
+    # Primeiro passo: XOR inicial
+    resultado = XOR_BITS(k, m)
+    
+    # Segundo passo: substituição usando S-box para confusão
+    temp = ""
+    for i in range(0, len(resultado), 2):
+        bloco = resultado[i:i+2] if i+1 < len(resultado) else resultado[i] + "0"
+        if len(bloco) == 2:
+            valor_bloco = int(bloco, 2)
+            novo_bloco = format((valor_bloco + int(k[i:i+2], 2)) % 4, '02b')
+            temp += novo_bloco
+        else:
+            temp += bloco
+    resultado = temp
+    
+    # Terceiro passo: rotação final
+    rotacao = (int(k, 2) % len(resultado)) + 1
+    return resultado[rotacao:] + resultado[:rotacao]
 
 def DEC(k: str, c: str) -> str:
- return XOR_BITS(k, c)
+    # Primeiro passo: rotação inversa
+    rotacao = (int(k, 2) % len(c)) + 1
+    rotacao_inversa = len(c) - rotacao
+    resultado = c[rotacao_inversa:] + c[:rotacao_inversa]
+    
+    # Segundo passo: desfaz a substituição
+    temp = ""
+    for i in range(0, len(resultado), 2):
+        bloco = resultado[i:i+2] if i+1 < len(resultado) else resultado[i] + "0"
+        if len(bloco) == 2:
+            valor_bloco = int(bloco, 2)
+            valor_k = int(k[i:i+2], 2)
+            novo_bloco = format((valor_bloco - valor_k) % 4, '02b')
+            temp += novo_bloco
+        else:
+            temp += bloco
+    resultado = temp
+    
+    # Terceiro passo: XOR final
+    return XOR_BITS(k, resultado)
 
 def XOR_BITS(bit1: str, bit2: str) -> str:
     if len(bit1) != len(bit2):
         raise ValueError("Chave e mensagem devem ter o mesmo tamanho")
-    return "".join(str(int(b1) ^ int(b2)) for b1, b2 in zip(bit1, bit2))
+    resultado = ""
+    for b1, b2 in zip(bit1, bit2):
+        resultado += str(int(b1) ^ int(b2))
+    return resultado
 
 
-def contar_bits_diferentes(a: str, b: str) -> int:
-    """Conta quantos bits são diferentes entre duas strings binárias."""
-    return sum(1 for x, y in zip(a, b) if x != y)
-
-def testar_tempo_execucao(seed: str, mensagem: str):
-    """Mede o tempo de execução de GEN, ENC e DEC."""
-    inicio = time.time()
+def test_encryption_decryption():
+    # Teste 1: Verificar se a mensagem é recuperada corretamente
+    seed = "00"
     k = GEN(seed)
-    tempo_gen = time.time() - inicio
+    m = "11010101"
+    c = ENC(k, m)
+    n = DEC(k, c)
+    print("\nTeste 1 - Recuperação da mensagem:")
+    print(f"Mensagem original: {m}")
+    print(f"Mensagem decriptada: {n}")
+    print(f"Teste passou? {m == n}")
 
-    k_final = (k * ((len(mensagem)//len(k))+1))[:len(mensagem)]
+def test_key_generation():
+    # Teste 2: Verificar se seeds diferentes geram chaves diferentes
+    seed1 = "00"
+    seed2 = "11"
+    k1 = GEN(seed1)
+    k2 = GEN(seed2)
+    print("\nTeste 2 - Chaves diferentes para seeds diferentes:")
+    print(f"Chave 1 (seed 00): {k1}")
+    print(f"Chave 2 (seed 11): {k2}")
+    print(f"Teste passou? {k1 != k2}")
 
-    inicio = time.time()
-    c = ENC(k_final, mensagem)
-    tempo_enc = time.time() - inicio
-
-    inicio = time.time()
-    _ = DEC(k_final, c)
-    tempo_dec = time.time() - inicio
-
-    return tempo_gen, tempo_enc, tempo_dec
-
-def testar_difusao(seed: str, mensagem: str):
-    """Altera 1 bit da mensagem e verifica quantos bits do ciphertext mudam."""
+def test_diffusion():
+    # Teste 3: Verificar difusão - mudança de 1 bit na mensagem
+    seed = "00"
     k = GEN(seed)
-    k_final = (k * ((len(mensagem)//len(k))+1))[:len(mensagem)]
-    
-    # Mensagem original e criptografada
-    c1 = ENC(k_final, mensagem)
-    
-    # Altera o primeiro bit da mensagem
-    mensagem_alterada = ('1' if mensagem[0]=='0' else '0') + mensagem[1:]
-    c2 = ENC(k_final, mensagem_alterada)
+    m1 = "11010101"
+    m2 = "11010100"  # Último bit diferente
+    c1 = ENC(k, m1)
+    c2 = ENC(k, m2)
+    diff_bits = sum(1 for a, b in zip(c1, c2) if a != b)
+    print("\nTeste 3 - Difusão (mudança de 1 bit na mensagem):")
+    print(f"Cifra 1: {c1}")
+    print(f"Cifra 2: {c2}")
+    print(f"Número de bits diferentes: {diff_bits}")
+    print(f"Teste passou? {diff_bits > 1}")  # Esperamos que mais de 1 bit mude
 
-    bits_diferentes = contar_bits_diferentes(c1, c2)
-    return c1, c2, bits_diferentes
-
-def testar_confusao(seed: str, mensagem: str):
-    """Altera 1 bit da chave e verifica quantos bits do ciphertext mudam."""
-    k1 = GEN(seed)
-    k_final1 = (k1 * ((len(mensagem)//len(k1))+1))[:len(mensagem)]
-    
-    # Criptografa com chave original
-    c1 = ENC(k_final1, mensagem)
-
-    # Seed alterada no primeiro bit
-    seed_alterada = ('1' if seed[0]=='0' else '0') + seed[1:]
-    k2 = GEN(seed_alterada)
-    k_final2 = (k2 * ((len(mensagem)//len(k2))+1))[:len(mensagem)]
-
-    # Criptografa com chave alterada
-    c2 = ENC(k_final2, mensagem)
-
-    bits_diferentes = contar_bits_diferentes(c1, c2)
-    return c1, c2, bits_diferentes
+def test_confusion():
+    # Teste 4: Verificar confusão - mesma mensagem com chaves diferentes
+    m = "11010101"
+    k1 = GEN("11")
+    k2 = GEN("01")
+    c1 = ENC(k1, m)
+    c2 = ENC(k2, m)
+    diff_bits = sum(1 for a, b in zip(c1, c2) if a != b)
+    print("\nTeste 4 - Confusão (mesma mensagem, chaves diferentes):")
+    print(f"Cifra 1: {c1}")
+    print(f"Cifra 2: {c2}")
+    print(f"Número de bits diferentes: {diff_bits}")
+    print(f"Teste passou? {diff_bits >= len(m)/2}")  # Esperamos que pelo menos metade dos bits mude
 
 def main():
-    print("Olá! Este é o arquivo GSI035")
-    print(f"Python versão em uso: {__import__('sys').version}")
-    print("Gerando chave...")
-
-    seed = "0101"
-    mensagem = "11010101"
-
-    # Gerar chave
-    k = GEN(seed)
-    print(f"Chave gerada: {k}")
-
-    # Ajustar chave ao tamanho da mensagem
-    k_final = (k * ((len(mensagem) // len(k)) + 1))[:len(mensagem)]
-
-    # Criptografar
-    c = ENC(k_final, mensagem)
-    print(f"Mensagem original: {mensagem}")
-    print(f"Mensagem criptografada: {c}")
-
-    # Descriptografar
-    m_decripto = DEC(k_final, c)
-    print(f"Mensagem descriptografada: {m_decripto}")
-    print(f"Mensagem original é igual à descriptografada? {mensagem == m_decripto}")
-    print()
-
-    # Teste de Tempo
-    print("=== Teste de Tempo de Execução ===")
-    tgen, tenc, tdec = testar_tempo_execucao(seed, mensagem)
-    print(f"TEMPO GEN: {tgen:.8f} segundos")
-    print(f"TEMPO ENC: {tenc:.8f} segundos")
-    print(f"TEMPO DEC: {tdec:.8f} segundos\n")
-
-    # Teste de Difusão
-    print("=== Teste de Difusão ===")
-    c1, c2, dif = testar_difusao(seed, mensagem)
-    print(f"Ciphertext original : {c1}")
-    print(f"Ciphertext alterado : {c2}")
-    print(f"Bits diferentes     : {dif}/{len(mensagem)}\n")
-
-    # Teste de Confusão
-    print("=== Teste de Confusão ===")
-    c1, c2, dif = testar_confusao(seed, mensagem)
-    print(f"Ciphertext com chave original : {c1}")
-    print(f"Ciphertext com chave alterada : {c2}")
-    print(f"Bits diferentes               : {dif}/{len(mensagem)}\n")
+    print("Testes do algoritmo de criptografia GSI035")
+    print("-" * 50)
+    
+    test_encryption_decryption()  # Teste de recuperação da mensagem
+    test_key_generation()         # Teste de geração de chaves
+    test_diffusion()             # Teste de difusão
+    test_confusion()             # Teste de confusão
 
 if __name__ == "__main__":
     main()
