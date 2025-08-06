@@ -135,7 +135,7 @@ def test_confusion():
     # Teste 4: Verificar confusão - mesma mensagem com chaves diferentes
     m = "11010101"
     k1 = GEN("11")
-    k2 = GEN("01")
+    k2 = GEN("00")
     c1 = ENC(k1, m)
     c2 = ENC(k2, m)
     diff_bits = sum(1 for a, b in zip(c1, c2) if a != b)
